@@ -13,7 +13,6 @@ PROMPT_TEXTAREA_XPATH = (
     '//textarea[@placeholder="Start typing a prompt to see what our models can do"]'
 )
 RUN_BUTTON_XPATH = '//button[@type="submit" and .//span[normalize-space(text())="Run"]]'
-TEMP_CHAT_BUTTON_XPATH = '//button[@aria-label="Cancel and use Temporary chat"]'
 GENERATED_TURN_SELECTOR = '[id^="turn-"]'
 DOWNLOAD_BUTTON_XPATH = '//*[@id="mat-mdc-dialog-title-0"]/div[2]/button[1]/span'
 GENERATED_IMAGES_DIR = Path("output") / "Generated Images"

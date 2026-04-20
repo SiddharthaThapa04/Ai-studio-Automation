@@ -48,7 +48,6 @@ It contains four main responsibilities:
 Relevant settings:
 
 - `BRAVE_BROWSER_PATH`
-- `BRAVE_REMOTE_DEBUGGING_PORT`
 - `BRAVE_PROFILE_DIRECTORY`
 
 If the port is already open, the script reuses the existing Brave session instead of launching a second browser.
@@ -143,7 +142,6 @@ If you use the existing task runner, `robot.yaml` already points to `Main.py`.
 
 ```env
 BRAVE_BROWSER_PATH=/Applications/Brave Browser.app/Contents/MacOS/Brave Browser
-BRAVE_REMOTE_DEBUGGING_PORT=9222
 BRAVE_PROFILE_DIRECTORY=Profile 3
 ```
 
@@ -175,7 +173,7 @@ brave-browser \
   --profile-directory="Profile 3"
 ```
 
-The important part is that the command matches the Brave installation path and the profile directory on that device. The debug port should also match the value stored in `.env`.
+The important part is that the command matches the Brave installation path and the profile directory on that device. The debug port is fixed in the code.
 
 ## Notes For Maintenance
 

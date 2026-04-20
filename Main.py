@@ -16,13 +16,13 @@ from automation.Config import (
     SELECT_IMAGE_MODEL_XPATH,
     SELECT_MODEL_MENU_XPATH,
     TARGET_URL,
-    TEMP_CHAT_BUTTON_XPATH,
 )
 from automation.ImageWorkflow import download_generated_image, open_generated_image
-from automation.ServerError import reload_if_error
+from automation.ServerError import has_rate_limit, reload_if_error
 
 
 ENV_FILE = Path(".env")
+BRAVE_REMOTE_DEBUGGING_PORT = 9222
 
 
 def run_workflow():
@@ -67,7 +67,7 @@ def run_workflow():
                 # The product occasionally shows a temporary chat prompt before the
                 # generated image is exposed.
                 sleep(5)
-                popup_button = page.locator(f"xpath={TEMP_CHAT_BUTTON_XPATH}")
+                popup_button = page.get_by_text("Cancel and use Temporary chat", exact=True)
                 try:
                     popup_button.wait_for(state="visible", timeout=3000)
                     popup_button.click(timeout=60000)
@@ -77,6 +77,10 @@ def run_workflow():
 
                 sleep(8)
                 log_message("Checked whether the image is ready.")
+
+                if has_rate_limit(page):
+                    log_message("Rate limit reached. Closing the browser.")
+                    return
 
                 if reload_if_error(page):
                     retry_count += 1
@@ -98,6 +102,10 @@ def run_workflow():
                     retry_count = 0
                     break
                 except Exception:
+                    if has_rate_limit(page):
+                        log_message("Rate limit reached. Closing the browser.")
+                        return
+
                     if reload_if_error(page):
                         retry_count += 1
                         log_message(f"Internal error detected. Retry {retry_count} of {MAX_RETRIES}.")
@@ -146,8 +154,6 @@ def load_env_settings():
 
     required_keys = [
         "BRAVE_BROWSER_PATH",
-        "BRAVE_REMOTE_DEBUGGING_PORT",
-        "BRAVE_PROFILE_DIRECTORY",
     ]
     missing_keys = [key for key in required_keys if key not in settings or not settings[key]]
     if missing_keys:
@@ -157,15 +163,20 @@ def load_env_settings():
 
 
 def ensure_browser_running(settings):
-    port = int(settings["BRAVE_REMOTE_DEBUGGING_PORT"])
+    port = BRAVE_REMOTE_DEBUGGING_PORT
     if port_is_open(port):
         return None
+
+    profile_directory = settings["BRAVE_PROFILE_DIRECTORY"]
+    profile_directory_argument = get_profile_directory_argument(profile_directory)
 
     command = [
         settings["BRAVE_BROWSER_PATH"],
         f"--remote-debugging-port={port}",
-        f'--profile-directory={settings["BRAVE_PROFILE_DIRECTORY"]}',
     ]
+
+    if profile_directory_argument is not None:
+        command.append(profile_directory_argument)
 
     process = subprocess.Popen(
         command,
@@ -180,6 +191,21 @@ def ensure_browser_running(settings):
         sleep(1)
 
     raise RuntimeError(f"Brave did not open remote debugging port {port}.")
+
+
+def get_profile_directory_argument(profile_directory):
+    if not profile_directory.strip():
+        return '--profile-directory=Default'
+
+    if profile_exists(profile_directory):
+        return f'--profile-directory={profile_directory}'
+
+    return '--profile-directory=Default'
+
+
+def profile_exists(profile_directory):
+    brave_user_data_dir = Path.home() / "Library" / "Application Support" / "BraveSoftware" / "Brave-Browser"
+    return (brave_user_data_dir / profile_directory).is_dir()
 
 
 def port_is_open(port):

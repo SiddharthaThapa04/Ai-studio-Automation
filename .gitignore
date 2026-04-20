@@ -4,3 +4,4 @@ __pycache__/
 .vscode/
 .playwright/
 .env
+Prompts.txt
