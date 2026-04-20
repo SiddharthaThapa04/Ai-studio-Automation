@@ -1,0 +1,11 @@
+tasks:
+  Main:
+    shell: python Main.py
+artifactsDir: output
+condaConfigFile: conda.yaml
+PATH:
+  - .
+PYTHONPATH:
+  - .
+ignoreFiles:
+  - .gitignore
