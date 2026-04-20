@@ -1,160 +1,166 @@
 # KIT-AI-Studio
 
-Automation for generating an image in Google AI Studio through Playwright, downloading the result, and saving it under `output/Generated Images`.
+Automates image generation in Google AI Studio through Playwright, downloads the generated image, and saves it under `output/Generated Images`.
 
-## Project Layout
+## Current Structure
 
 - `Main.py`: entry point and workflow orchestration
 - `automation/Config.py`: URLs, file paths, and XPath selectors
 - `automation/ImageWorkflow.py`: opens the generated image dialog and downloads the file
-- `automation/ServerError.py`: detects known page errors and reloads the page
-- `.env`: Brave browser launch settings
+- `automation/ServerError.py`: detects known page error text and reloads the page
+- `.env`: Brave browser path and profile settings
 - `Prompts.txt`: prompt text sent to AI Studio
 
-## What The Script Does
+## Execution Flow
 
-The script:
+1. `robot.yaml` runs `python Main.py`
+2. `Main.py` reads the prompt from `Prompts.txt`
+3. `Main.py` reads Brave settings from `.env`
+4. `Main.py` checks whether the Brave debug port `9222` is already open
+5. If Brave is not running, `Main.py` launches it with remote debugging enabled
+6. Playwright connects to the running browser session
+7. The script opens Google AI Studio
+8. The script selects the image model
+9. The script fills the prompt box
+10. The script clicks Run
+11. The script handles the temporary chat prompt if it appears
+12. The script waits for the response
+13. If an error message appears, the page reloads and the workflow retries
+14. If the rate limit message appears, the workflow stops immediately
+15. If generation succeeds, the generated image is opened and downloaded
+16. Cleanup always runs at the end
 
-1. Reads the prompt from `Prompts.txt`
-2. Reads Brave launch settings from `.env`
-3. Starts Brave with remote debugging if it is not already running
-4. Connects Playwright to the existing browser session
-5. Opens Google AI Studio
-6. Selects the image model
-7. Fills the prompt box
-8. Runs generation
-9. Handles the temporary chat prompt if it appears
-10. Checks whether the generated image is ready
-11. Detects known error messages and retries up to 3 times
-12. Opens the generated image
-13. Downloads the image into `output/Generated Images`
-14. Closes the browser cleanly when the workflow finishes or fails
+## `Main.py`
 
-## How `Main.py` Works
-
-`Main.py` is the only file you run directly.
-
-It contains four main responsibilities:
-
-- browser startup
-- browser attachment
-- generation retry loop
-- cleanup
+`Main.py` owns the full workflow.
 
 ### Browser Startup
 
-`Main.py` reads `.env` and launches Brave with the configured command if the debugging port is not open.
-
-Relevant settings:
+`Main.py` reads `.env` for:
 
 - `BRAVE_BROWSER_PATH`
 - `BRAVE_PROFILE_DIRECTORY`
 
-If the port is already open, the script reuses the existing Brave session instead of launching a second browser.
+The remote debugging port is hardcoded in the script as `9222`.
 
-### Retry Logic
+When Brave starts:
 
-The workflow retries only when the page contains one of these messages:
+- if the requested profile folder exists, the script opens that profile
+- if the profile name is empty or does not exist, the script falls back to Brave's default profile
+- if Brave is already running on the debugging port, the script reuses it
+
+### Retry Behavior
+
+The workflow retries when the page contains:
 
 - `An internal error has occurred`
 - `Content blocked`
 
-The retry limit is 3 consecutive failures.
+The retry limit is `3`.
 
-If the limit is reached, the script stops the workflow and exits cleanly.
+If the page contains:
+
+- `You've reached your rate limit. Please try again later.`
+
+the workflow stops immediately and exits through the normal cleanup path.
 
 ### Cleanup
 
-At the end of the run, the script always:
+At the end of execution, `Main.py` always:
 
 - closes the Playwright browser connection
-- terminates the Brave process it started, if it launched one
+- terminates the Brave process that was launched by the script
 
-This is handled in a `finally` block so cleanup still runs if the workflow fails.
+This happens in a `finally` block so cleanup still runs on success, retry exhaustion, or exceptions.
 
 ## `automation/Config.py`
 
-This file centralizes the stable configuration values:
+This file stores the stable values used by the workflow:
 
-- AI Studio URL
-- CDP URL
-- prompt file path
-- XPath selectors
-- output folder path
+- `TARGET_URL`
+- `CDP_URL`
+- `PROMPT_FILE`
+- selectors for the model menu, image model, prompt box, run button, and generated image
+- download folder path
 - retry limit
 
-Keeping selectors here makes the automation easier to maintain because the page-specific values are in one place.
+Keeping these values together makes it easier to update the automation when the AI Studio DOM changes.
 
 ## `automation/ImageWorkflow.py`
 
-This module contains the image-specific actions:
+This module handles the image-specific steps.
 
 ### `open_generated_image(page)`
 
-Finds the newest result turn that contains an image and clicks it.
+This function:
 
-The code avoids a hardcoded turn id because AI Studio changes turn ids every run.
+- finds the newest turn that contains an image
+- clicks the image or its nearest clickable wrapper
+
+It avoids hardcoded turn ids because AI Studio changes them every run.
 
 ### `download_generated_image(page)`
 
-Clicks the dialog download button, captures the Playwright download object, and saves the file into:
+This function:
 
-- `output/Generated Images`
+- clicks the download button in the image dialog
+- captures the browser download
+- saves the file into `output/Generated Images`
 
 If the folder already exists, it is reused.
 
 ## `automation/ServerError.py`
 
-This module checks the rendered page text for known failure messages and reloads the page when one is present.
+This module checks the rendered page text for known messages and decides whether to reload or stop.
 
-It is intentionally small because it represents a single rule:
+It currently recognizes:
 
-- inspect the page text
-- reload if an error message appears
+- `An internal error has occurred`
+- `Content blocked`
+- `You've reached your rate limit. Please try again later.`
+
+The first two messages trigger a page reload through `Main.py`.
+The rate-limit message stops the workflow immediately.
 
 ## Output
 
-Downloaded images are saved under:
+Generated images are saved under:
 
 ```text
 output/Generated Images/
 ```
 
-Each run keeps the browser download filename suggested by the browser.
+The saved filename comes from the browser download.
 
 ## Requirements
 
 - Python 3.11
 - Playwright
-- Brave Browser installed at the path configured in `.env`
+- Brave Browser installed on the machine
 
-## Running
+## `.env`
 
-The automation is launched through the project task configuration:
+This file is used for Brave startup only.
 
-```bash
-python Main.py
-```
-
-If you use the existing task runner, `robot.yaml` already points to `Main.py`.
-
-## `.env` Example
+Example:
 
 ```env
-BRAVE_BROWSER_PATH=/Applications/Brave Browser.app/Contents/MacOS/Brave Browser
+BRAVE_BROWSER_PATH=/path/to/Brave Browser executable
 BRAVE_PROFILE_DIRECTORY=Profile 3
 ```
 
-## Brave Launch Commands
+If `BRAVE_PROFILE_DIRECTORY` is empty or the named profile does not exist, the script falls back to Brave's default profile.
 
-If another person runs this project on a different device, they should update the Brave path and profile name to match their system.
+## Brave Launch Command
+
+The browser is launched internally by `Main.py`, but this is the equivalent manual command:
 
 ### macOS
 
 ```bash
 "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \
   --remote-debugging-port=9222 \
-  --profile-directory="Profile 3"
+  --profile-directory=""
 ```
 
 ### Windows
@@ -162,7 +168,7 @@ If another person runs this project on a different device, they should update th
 ```bat
 "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe" ^
   --remote-debugging-port=9222 ^
-  --profile-directory="Profile 3"
+  --profile-directory=""
 ```
 
 ### Linux
@@ -170,14 +176,21 @@ If another person runs this project on a different device, they should update th
 ```bash
 brave-browser \
   --remote-debugging-port=9222 \
-  --profile-directory="Profile 3"
+  --profile-directory=""
 ```
 
-The important part is that the command matches the Brave installation path and the profile directory on that device. The debug port is fixed in the code.
+If the profile name does not exist, Brave opens the default profile instead.
 
-## Notes For Maintenance
+## Running
+
+The project task runner already points to `Main.py`:
+
+```bash
+python Main.py
+```
+
+## Maintenance Notes
 
 - Update selectors in `automation/Config.py` if AI Studio changes its DOM.
-- Update retry behavior in `Main.py` if the site becomes slower or less stable.
-- Update error detection in `automation/ServerError.py` if AI Studio changes the wording of its warnings.
-- Keep the Brave launch settings in `.env` so the browser startup can be changed without editing the code.
+- Update error text handling in `automation/ServerError.py` if the warning messages change.
+- Update `Main.py` if the Brave startup command or profile selection logic changes.
