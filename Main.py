@@ -22,7 +22,7 @@ from automation.ServerError import has_rate_limit, reload_if_error
 
 
 ENV_FILE = Path(".env")
-BRAVE_REMOTE_DEBUGGING_PORT = 9222
+CHROMIUM_REMOTE_DEBUGGING_PORT = 9222
 
 
 def run_workflow():
@@ -163,7 +163,7 @@ def load_env_settings():
 
 
 def ensure_browser_running(settings):
-    port = BRAVE_REMOTE_DEBUGGING_PORT
+    port = CHROMIUM_REMOTE_DEBUGGING_PORT
     if port_is_open(port):
         return None
 

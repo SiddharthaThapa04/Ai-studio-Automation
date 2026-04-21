@@ -16,7 +16,7 @@ Automates image generation in Google AI Studio through Playwright, downloads the
 1. `robot.yaml` runs `python Main.py`
 2. `Main.py` reads the prompt from `Prompts.txt`
 3. `Main.py` reads Brave settings from `.env`
-4. `Main.py` checks whether the Brave debug port `9222` is already open
+4. `Main.py` checks whether the Chromium debug port `9222` is already open
 5. If Brave is not running, `Main.py` launches it with remote debugging enabled
 6. Playwright connects to the running browser session
 7. The script opens Google AI Studio
@@ -41,7 +41,7 @@ Automates image generation in Google AI Studio through Playwright, downloads the
 - `BRAVE_BROWSER_PATH`
 - `BRAVE_PROFILE_DIRECTORY`
 
-The remote debugging port is hardcoded in the script as `9222`.
+The remote debugging port is hardcoded in the script as `9222` through `CHROMIUM_REMOTE_DEBUGGING_PORT`.
 
 When Brave starts:
 
