@@ -145,9 +145,11 @@ This file is used for Brave startup only.
 Example:
 
 ```env
-BRAVE_BROWSER_PATH=/path/to/Brave Browser executable
+BRAVE_BROWSER_PATH=Brave Browser
 BRAVE_PROFILE_DIRECTORY=Profile 3
 ```
+
+`BRAVE_BROWSER_PATH` can be either the full executable path or the Brave app name on macOS. The script resolves `Brave Browser` to the installed app binary if it exists in a standard location.
 
 If `BRAVE_PROFILE_DIRECTORY` is empty or the named profile does not exist, the script falls back to Brave's default profile.
 

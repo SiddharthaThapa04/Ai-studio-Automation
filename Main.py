@@ -2,6 +2,7 @@ import os
 import signal
 import socket # checks the port
 import subprocess # starts Brave
+import shutil
 from pathlib import Path # handles .env
 from time import sleep # adds delays
 
@@ -18,7 +19,7 @@ from automation.Config import (
     TARGET_URL,
 )
 from automation.ImageWorkflow import download_generated_image, open_generated_image
-from automation.ServerError import has_rate_limit, reload_if_error
+from automation.ServerError import reload_if_error
 
 
 ENV_FILE = Path(".env")
@@ -78,10 +79,6 @@ def run_workflow():
                 sleep(8)
                 log_message("Checked whether the image is ready.")
 
-                if has_rate_limit(page):
-                    log_message("Rate limit reached. Closing the browser.")
-                    return
-
                 if reload_if_error(page):
                     retry_count += 1
                     log_message(f"Internal error detected. Retry {retry_count} of {MAX_RETRIES}.")
@@ -102,10 +99,6 @@ def run_workflow():
                     retry_count = 0
                     break
                 except Exception:
-                    if has_rate_limit(page):
-                        log_message("Rate limit reached. Closing the browser.")
-                        return
-
                     if reload_if_error(page):
                         retry_count += 1
                         log_message(f"Internal error detected. Retry {retry_count} of {MAX_RETRIES}.")
@@ -169,9 +162,10 @@ def ensure_browser_running(settings):
 
     profile_directory = settings["BRAVE_PROFILE_DIRECTORY"]
     profile_directory_argument = get_profile_directory_argument(profile_directory)
+    browser_path = resolve_browser_path(settings["BRAVE_BROWSER_PATH"])
 
     command = [
-        settings["BRAVE_BROWSER_PATH"],
+        browser_path,
         f"--remote-debugging-port={port}",
     ]
 
@@ -191,6 +185,33 @@ def ensure_browser_running(settings):
         sleep(1)
 
     raise RuntimeError(f"Brave did not open remote debugging port {port}.")
+
+
+def resolve_browser_path(browser_setting):
+    browser_setting = browser_setting.strip()
+    candidate_path = Path(browser_setting).expanduser()
+
+    if candidate_path.is_absolute() or candidate_path.parent != Path("."):
+        if candidate_path.exists():
+            return str(candidate_path)
+
+    which_result = shutil.which(browser_setting)
+    if which_result:
+        return which_result
+
+    if browser_setting in {"Brave Browser", "Brave", "brave-browser"}:
+        macos_candidates = [
+            Path("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"),
+            Path.home() / "Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+        ]
+
+        for macos_candidate in macos_candidates:
+            if macos_candidate.exists():
+                return str(macos_candidate)
+
+    raise FileNotFoundError(
+        f"Could not resolve Brave browser path from BRAVE_BROWSER_PATH={browser_setting!r}."
+    )
 
 
 def get_profile_directory_argument(profile_directory):
